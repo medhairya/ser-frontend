@@ -123,11 +123,7 @@
         const loadingText = document.getElementById('loadingText');
         const resultDiv = document.getElementById('result');
 
-        // IMPORTANT: Change this URL to your live Render backend URL once deployed!
-        // For local testing, keep it as localhost:8000
-        const API_URL = "http://localhost:8000/predict"; 
-
-        form.addEventListener('submit', async (e) => {
+        form.addEventListener('submit', (e) => {
             e.preventDefault();
 
             if (fileInput.files.length === 0) {
@@ -135,44 +131,13 @@
                 return;
             }
 
-            const file = fileInput.files[0];
-            const formData = new FormData();
-            formData.append("file", file);
-
-            // Show loading UI
+            // Show loading UI infinitely
             submitBtn.disabled = true;
             loader.style.display = 'block';
             loadingText.style.display = 'block';
             resultDiv.innerText = '';
-
-            try {
-                const response = await fetch(API_URL, {
-                    method: 'POST',
-                    body: formData
-                });
-
-                if (!response.ok) {
-                    throw new Error("API request failed");
-                }
-
-                const data = await response.json();
-                
-                // Hide loading UI and show result
-                loader.style.display = 'none';
-                loadingText.style.display = 'none';
-                submitBtn.disabled = false;
-
-                resultDiv.innerText = `Result: ${data.prediction} (Confidence: ${data.confidence})`;
-
-            } catch (error) {
-                // Handle errors
-                loader.style.display = 'none';
-                loadingText.style.display = 'none';
-                submitBtn.disabled = false;
-                resultDiv.style.color = '#ef4444'; // Red error text
-                resultDiv.innerText = `Error connecting to API. Is your backend running?`;
-                console.error(error);
-            }
+            
+            // Note: No API call is made here, so it will load forever!
         });
     </script>
 </body>
