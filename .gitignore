@@ -1,0 +1,32 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.eggs/
+dist/
+build/
+.venv/
+venv/
+.env
+.env.*
+!.env.example
+
+# Node / frontend
+node_modules/
+frontend/dist/
+
+# OS / IDE
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+
+# Training / checkpoints (use Hugging Face; see DEPLOYMENT.md)
+*.pt
+*.pth
+checkpoints/
+logs/
+cache/
+
+# Modal
+.modal/

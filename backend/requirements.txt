@@ -1,0 +1,9 @@
+# Local / CPU inference and dev server (train with GPU elsewhere; Modal uses CUDA in modal_app.py)
+fastapi>=0.115.0
+uvicorn[standard]>=0.30.0
+python-multipart>=0.0.9
+opencv-python-headless>=4.8.0
+numpy>=1.26.0
+huggingface_hub>=0.24.0
+torch==2.4.1
+torchaudio==2.4.1
