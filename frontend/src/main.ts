@@ -54,33 +54,6 @@ function saveApi(url: string): void {
   }
 }
 
-// Replace this placeholder with your actual Gemini API Key
-const GEMINI_API_KEY = "AIzaSyAEZHyfa6NRk3RRVcAr2G2uK3NEnlq9goQ";
-
-async function fetchGeminiInsight(emotion: string, confidence: number): Promise<string> {
-  const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${GEMINI_API_KEY}`;
-  const prompt = `You are an empathetic and insightful AI assistant. The user just analyzed a video of themselves speaking. The emotion recognition model detected that they are feeling "${emotion}" with ${(confidence * 100).toFixed(1)}% confidence. 
-Please write a highly engaging, meaningful, and thoughtful response consisting of at least 3 to 4 full sentences directed at the user. 
-If they are happy, calm, or neutral, share their joy and provide an inspiring quote. 
-If they are sad, fearful, surprised, disgusted, or angry, be highly supportive, encouraging, and provide a comforting thought. 
-Do not be brief. Be conversational, thoughtful, and expressive.`;
-  
-  const response = await fetch(url, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      contents: [{ parts: [{ text: prompt }] }],
-      generationConfig: { temperature: 0.7 }
-    })
-  });
-
-  if (!response.ok) {
-    throw new Error('Gemini API failed');
-  }
-
-  const data = await response.json();
-  return data.candidates[0].content.parts[0].text;
-}
 
 function render(): void {
   const initial = loadStoredApi() || defaultApiUrl();
@@ -90,12 +63,9 @@ function render(): void {
         <h1>Upload Video for Emotion Recognition</h1>
         
         <form id="uploadForm">
-            <div class="api-inputs">
-              <input id="apiUrl" name="apiUrl" type="url" autocomplete="off"
-                placeholder="Model API URL (e.g. https://...modal.run)"
-                value="${initial.replace(/"/g, "&quot;")}" required />
-
-            </div>
+            <input id="apiUrl" name="apiUrl" type="url" autocomplete="off"
+              placeholder="API URL (e.g. https://...modal.run)"
+              value="${initial.replace(/"/g, "&quot;")}" required />
 
             <input type="file" id="videoFile" accept="video/*" required>
             <button type="submit" id="submitBtn">Analyze Emotion</button>
@@ -185,26 +155,7 @@ function render(): void {
         <div class="result-text">${data.emotion.toUpperCase()}</div>
         <div class="result-conf">Confidence: ${(data.confidence * 100).toFixed(1)}%</div>
         <div class="bars">${renderBars(data.probabilities)}</div>
-        <div id="geminiResponse" class="gemini-card" style="display: none;"></div>
       `;
-
-      if (GEMINI_API_KEY && GEMINI_API_KEY !== "AIzaSyAEZHyfa6NRk3RRVcAr2G2uK3NEnlq9goQ") {
-        const geminiDiv = document.getElementById('geminiResponse') as HTMLDivElement;
-        geminiDiv.style.display = 'block';
-        geminiDiv.innerHTML = `<div class="loader-small"></div> Fetching AI insight...`;
-        
-        try {
-          const insight = await fetchGeminiInsight(data.emotion, data.confidence);
-          geminiDiv.innerHTML = `<strong>✨ AI Insight:</strong><br/><br/>${insight}`;
-        } catch (err) {
-          console.error(err);
-          geminiDiv.innerHTML = `<em>Could not fetch AI insight. Please check your hardcoded Gemini API key.</em>`;
-        }
-      } else {
-        const geminiDiv = document.getElementById('geminiResponse') as HTMLDivElement;
-        geminiDiv.style.display = 'block';
-        geminiDiv.innerHTML = `<em>Please set your GEMINI_API_KEY in main.ts to see AI insights.</em>`;
-      }
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e);
       loadingText.innerText = `Error: ${msg}`;
