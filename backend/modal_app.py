@@ -45,6 +45,7 @@ image = (
         "opencv-python-headless>=4.8.0",
         "numpy>=1.26.0",
         "huggingface_hub>=0.24.0",
+        "pydantic==2.12.6",
     )
     .pip_install(
         "torch==2.4.1",
