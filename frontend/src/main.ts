@@ -95,12 +95,12 @@ function render(): void {
     return ordered
       .map((name) => {
         const v = Math.round((probs[name] ?? 0) * 1000) / 10;
-        return \`
+        return `
         <div class="bar-row">
-          <span class="bar-name">\${name}</span>
-          <div class="bar-track"><div class="bar-fill" style="width:\${v}%"></div></div>
-          <span class="bar-pct">\${v}%</span>
-        </div>\`;
+          <span class="bar-name">${name}</span>
+          <div class="bar-track"><div class="bar-fill" style="width:${v}%"></div></div>
+          <span class="bar-pct">${v}%</span>
+        </div>`;
       })
       .join("");
   };
@@ -114,7 +114,7 @@ function render(): void {
     }
 
     const selected = fileInput.files![0];
-    const base = apiInput.value.trim().replace(/\\/$/, "");
+    const base = apiInput.value.trim().replace(/\/$/, "");
     saveApi(base);
 
     if (!base) {
@@ -133,7 +133,7 @@ function render(): void {
     fd.append("file", selected, selected.name);
 
     try {
-      const res = await fetch(\`\${base}/predict\`, {
+      const res = await fetch(`${base}/predict`, {
         method: "POST",
         body: fd,
       });
@@ -142,21 +142,21 @@ function render(): void {
       if (!res.ok) {
         const body = data as PredictErrorBody;
         const msg = body?.detail != null ? String(body.detail) : res.statusText;
-        throw new Error(msg || \`HTTP \${res.status}\`);
+        throw new Error(msg || `HTTP ${res.status}`);
       }
 
       if (!isPredictSuccess(data)) {
         throw new Error("Unexpected response from API");
       }
 
-      resultDiv.innerHTML = \`
-        <div class="result-text">\${data.emotion.toUpperCase()}</div>
-        <div class="result-conf">Confidence: \${(data.confidence * 100).toFixed(1)}%</div>
-        <div class="bars">\${renderBars(data.probabilities)}</div>
-      \`;
+      resultDiv.innerHTML = `
+        <div class="result-text">${data.emotion.toUpperCase()}</div>
+        <div class="result-conf">Confidence: ${(data.confidence * 100).toFixed(1)}%</div>
+        <div class="bars">${renderBars(data.probabilities)}</div>
+      `;
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e);
-      loadingText.innerText = \`Error: \${msg}\`;
+      loadingText.innerText = `Error: ${msg}`;
       loadingText.style.color = "#ef4444";
     } finally {
       submitBtn.disabled = false;
