@@ -55,7 +55,7 @@ function saveApi(url: string): void {
 }
 
 // Replace this placeholder with your actual Gemini API Key
-const GEMINI_API_KEY = "YOUR_GEMINI_API_KEY_HERE";
+const GEMINI_API_KEY = "AIzaSyAEZHyfa6NRk3RRVcAr2G2uK3NEnlq9goQ";
 
 async function fetchGeminiInsight(emotion: string, confidence: number): Promise<string> {
   const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${GEMINI_API_KEY}`;
@@ -188,7 +188,7 @@ function render(): void {
         <div id="geminiResponse" class="gemini-card" style="display: none;"></div>
       `;
 
-      if (GEMINI_API_KEY && GEMINI_API_KEY !== "YOUR_GEMINI_API_KEY_HERE") {
+      if (GEMINI_API_KEY && GEMINI_API_KEY !== "AIzaSyAEZHyfa6NRk3RRVcAr2G2uK3NEnlq9goQ") {
         const geminiDiv = document.getElementById('geminiResponse') as HTMLDivElement;
         geminiDiv.style.display = 'block';
         geminiDiv.innerHTML = `<div class="loader-small"></div> Fetching AI insight...`;
