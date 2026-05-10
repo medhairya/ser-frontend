@@ -188,7 +188,7 @@ function render(): void {
         <div id="geminiResponse" class="gemini-card" style="display: none;"></div>
       `;
 
-      if (GEMINI_API_KEY && GEMINI_API_KEY !== "[GCP_API_KEY]") {
+      if (GEMINI_API_KEY && GEMINI_API_KEY !== "AIzaSyAEZHyfa6NRk3RRVcAr2G2uK3NEnlq9goQ") {
         const geminiDiv = document.getElementById('geminiResponse') as HTMLDivElement;
         geminiDiv.style.display = 'block';
         geminiDiv.innerHTML = `<div class="loader-small"></div> Fetching AI insight...`;
