@@ -25,70 +25,19 @@ from src.models.avtca import AVTCA
 log = logging.getLogger(__name__)
 
 
-def _load_waveform(path: str, target_sr: int) -> Tuple[torch.Tensor, int]:
-    """
-    Decode audio to mono float waveform at ``target_sr``.
+def _waveform_has_signal(waveform: torch.Tensor) -> bool:
+    """Reject empty tensors and silent decodes (torchaudio often \"succeeds\" on MP4 with zeros)."""
+    if waveform.numel() == 0:
+        return False
+    return bool(waveform.abs().max().item() > 1e-6)
 
-    For **video containers**, prefer ffmpeg first. On Linux servers, ``torchaudio.load``
-    on MP4/AAC can yield empty or silent audio without raising, so the model sees a
-    near-constant mel and collapses to one class (e.g. always ``fearful``). Notebooks
-    often use PyAV instead, which decodes reliably — ffmpeg here matches that behavior.
-    """
-    suffix = Path(path).suffix.lower()
-    video_like = suffix in {".mp4", ".webm", ".avi", ".mov", ".mkv", ".m4v"}
 
-    if video_like:
-        tmp: Optional[str] = None
-        try:
-            with tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as f:
-                tmp = f.name
-            result = subprocess.run(
-                [
-                    "ffmpeg",
-                    "-nostdin",
-                    "-i",
-                    path,
-                    "-vn",
-                    "-acodec",
-                    "pcm_s16le",
-                    "-ar",
-                    str(target_sr),
-                    "-ac",
-                    "1",
-                    "-y",
-                    tmp,
-                    "-loglevel",
-                    "error",
-                ],
-                capture_output=True,
-                timeout=120,
-            )
-            if result.returncode == 0 and os.path.getsize(tmp) > 64:
-                waveform, sr = torchaudio.load(tmp)
-                if waveform.numel() > 0:
-                    if sr != target_sr:
-                        waveform = torchaudio.functional.resample(waveform, sr, target_sr)
-                    return waveform, target_sr
-        except Exception as e:
-            log.debug("ffmpeg (video) audio extract failed for %s: %s", path, e)
-        finally:
-            if tmp and os.path.exists(tmp):
-                try:
-                    os.unlink(tmp)
-                except OSError:
-                    pass
-
-    try:
-        waveform, sr = torchaudio.load(path)
-        if sr != target_sr:
-            waveform = torchaudio.functional.resample(waveform, sr, target_sr)
-        return waveform, target_sr
-    except Exception:
-        pass
-
+def _ffmpeg_extract_audio(path: str, target_sr: int) -> Optional[torch.Tensor]:
+    """Demux audio to PCM WAV via ffmpeg, then load with torchaudio."""
+    tmp: Optional[str] = None
     try:
         with tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as f:
-            tmp2 = f.name
+            tmp = f.name
         result = subprocess.run(
             [
                 "ffmpeg",
@@ -103,24 +52,115 @@ def _load_waveform(path: str, target_sr: int) -> Tuple[torch.Tensor, int]:
                 "-ac",
                 "1",
                 "-y",
-                tmp2,
+                tmp,
                 "-loglevel",
                 "error",
             ],
             capture_output=True,
             timeout=120,
         )
-        if result.returncode == 0 and os.path.getsize(tmp2) > 64:
-            waveform, sr = torchaudio.load(tmp2)
-            os.unlink(tmp2)
-            if waveform.numel() > 0:
-                if sr != target_sr:
-                    waveform = torchaudio.functional.resample(waveform, sr, target_sr)
-                return waveform, target_sr
-        if os.path.exists(tmp2):
-            os.unlink(tmp2)
+        if result.returncode != 0 or not tmp or os.path.getsize(tmp) <= 64:
+            return None
+        waveform, sr = torchaudio.load(tmp)
+        if not _waveform_has_signal(waveform):
+            return None
+        if sr != target_sr:
+            waveform = torchaudio.functional.resample(waveform, sr, target_sr)
+        return waveform
     except Exception as e:
-        log.debug("ffmpeg extraction failed for %s: %s", path, e)
+        log.debug("ffmpeg audio extract failed for %s: %s", path, e)
+        return None
+    finally:
+        if tmp and os.path.exists(tmp):
+            try:
+                os.unlink(tmp)
+            except OSError:
+                pass
+
+
+def _try_load_waveform_via_av(path: str, target_sr: int) -> Optional[torch.Tensor]:
+    """Same strategy as local notebooks: PyAV decodes AAC in MP4 reliably."""
+    try:
+        import av
+    except ImportError:
+        return None
+    container = None
+    try:
+        container = av.open(path)
+        streams = [s for s in container.streams if s.type == "audio"]
+        if not streams:
+            return None
+        try:
+            from av.audio.resampler import AudioResampler
+
+            resampler = AudioResampler(
+                format="fltp",
+                layout="mono",
+                rate=target_sr,
+            )
+        except (ImportError, AttributeError):
+            return None
+        chunks: List[np.ndarray] = []
+        for frame in container.decode(audio=0):
+            resampled = resampler.resample(frame)
+            if isinstance(resampled, list):
+                for rf in resampled:
+                    chunks.append(rf.to_ndarray())
+            elif resampled is not None:
+                chunks.append(resampled.to_ndarray())
+        if not chunks:
+            return None
+        audio = np.concatenate(chunks, axis=-1)
+        if audio.ndim == 1:
+            audio = audio[np.newaxis, :]
+        waveform = torch.from_numpy(audio.astype(np.float32))
+        if not _waveform_has_signal(waveform):
+            return None
+        return waveform
+    except Exception as e:
+        log.debug("PyAV audio decode failed for %s: %s", path, e)
+        return None
+    finally:
+        if container is not None:
+            try:
+                container.close()
+            except Exception:
+                pass
+
+
+def _load_waveform(path: str, target_sr: int) -> Tuple[torch.Tensor, int]:
+    """
+    Decode mono float waveform at ``target_sr``.
+
+    **Critical:** do not call ``torchaudio.load`` on raw MP4/MKV paths. On Linux it often
+    returns without error but with **silent** audio; the next lines then returned that
+    tensor and masked the ffmpeg path — same collapsed prediction every time.
+    """
+    suffix = Path(path).suffix.lower()
+    video_like = suffix in {".mp4", ".webm", ".avi", ".mov", ".mkv", ".m4v"}
+
+    if video_like:
+        w = _ffmpeg_extract_audio(path, target_sr)
+        if w is not None:
+            return w, target_sr
+        w = _try_load_waveform_via_av(path, target_sr)
+        if w is not None:
+            return w, target_sr
+        log.warning("All audio decoders failed for video %s; using silence", path)
+        return torch.zeros(1, target_sr * 3), target_sr
+
+    try:
+        waveform, sr = torchaudio.load(path)
+        if sr != target_sr:
+            waveform = torchaudio.functional.resample(waveform, sr, target_sr)
+        if _waveform_has_signal(waveform):
+            return waveform, target_sr
+    except Exception:
+        pass
+
+    w = _ffmpeg_extract_audio(path, target_sr)
+    if w is not None:
+        return w, target_sr
 
     log.warning("Returning silence for %s", path)
     return torch.zeros(1, target_sr * 3), target_sr
