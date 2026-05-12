@@ -64,8 +64,8 @@ uvicorn local_app:app --reload --port 8000
 1. Push this repo (or the `new/` folder as the repo root) to **GitHub**.
 2. In Vercel: **New Project** → import the repo.
 3. Set **Root Directory** to `frontend` (if the repo contains more than the frontend).
-4. **Environment variable:** `VITE_API_URL` = your Modal HTTPS origin **without a trailing slash**, e.g. `https://xxxx.modal.run`
-5. Deploy. The UI can still override the URL in the browser (stored in `localStorage`) for testing.
+4. **API URL:** The production Space URL is **fixed** in `frontend/src/main.ts` (`API_BASE`). You do **not** need `VITE_API_URL` on Vercel unless you fork and change the code.
+5. Deploy.
 
 ---
 

@@ -32,41 +32,16 @@ const ORDER = [
   "surprised",
 ] as const;
 
-function defaultApiUrl(): string {
-  const fromDefine = typeof __API_URL__ !== "undefined" ? __API_URL__ : "";
-  const fromImport = import.meta.env.VITE_API_URL ?? "";
-  return (fromDefine || fromImport).replace(/\/$/, "");
-}
-
-function loadStoredApi(): string {
-  try {
-    return localStorage.getItem("ser_api_url") ?? "";
-  } catch {
-    return "";
-  }
-}
-
-function saveApi(url: string): void {
-  try {
-    localStorage.setItem("ser_api_url", url.trim());
-  } catch {
-    /* ignore */
-  }
-}
-
+/** Production Hugging Face Space (fixed; not user-editable). */
+const API_BASE = "https://dhairya-4252-dhairya-hf-space.hf.space".replace(/\/$/, "");
 
 function render(): void {
-  const initial = loadStoredApi() || defaultApiUrl();
-
   document.querySelector<HTMLDivElement>("#app")!.innerHTML = `
     <div class="container">
         <h1>Upload Video for Emotion Recognition</h1>
-        
-        <form id="uploadForm">
-            <input id="apiUrl" name="apiUrl" type="url" autocomplete="off"
-              placeholder="API URL (e.g. https://...modal.run)"
-              value="${initial.replace(/"/g, "&quot;")}" required />
+        <p class="api-endpoint">API: ${API_BASE.replace(/</g, "&lt;").replace(/&/g, "&amp;")}</p>
 
+        <form id="uploadForm">
             <input type="file" id="videoFile" accept="video/*" required>
             <button type="submit" id="submitBtn">Analyze Emotion</button>
         </form>
@@ -78,17 +53,12 @@ function render(): void {
     </div>
   `;
 
-  const form = document.getElementById('uploadForm') as HTMLFormElement;
-  const apiInput = document.getElementById('apiUrl') as HTMLInputElement;
-  const fileInput = document.getElementById('videoFile') as HTMLInputElement;
-  const submitBtn = document.getElementById('submitBtn') as HTMLButtonElement;
-  const loader = document.getElementById('loader') as HTMLDivElement;
-  const loadingText = document.getElementById('loadingText') as HTMLDivElement;
-  const resultDiv = document.getElementById('result') as HTMLDivElement;
-
-  apiInput.addEventListener("change", () => saveApi(apiInput.value));
-  apiInput.addEventListener("blur", () => saveApi(apiInput.value));
-
+  const form = document.getElementById("uploadForm") as HTMLFormElement;
+  const fileInput = document.getElementById("videoFile") as HTMLInputElement;
+  const submitBtn = document.getElementById("submitBtn") as HTMLButtonElement;
+  const loader = document.getElementById("loader") as HTMLDivElement;
+  const loadingText = document.getElementById("loadingText") as HTMLDivElement;
+  const resultDiv = document.getElementById("result") as HTMLDivElement;
 
   const renderBars = (probs: Record<string, number>) => {
     const keys = ORDER.filter((k) => k in probs);
@@ -107,35 +77,28 @@ function render(): void {
       .join("");
   };
 
-  form.addEventListener('submit', async (e) => {
+  form.addEventListener("submit", async (e) => {
     e.preventDefault();
 
     if (fileInput.files?.length === 0) {
-        alert("Please select a file.");
-        return;
-    }
-
-    const selected = fileInput.files![0];
-    const base = apiInput.value.trim().replace(/\/$/, "");
-    saveApi(base);
-
-    if (!base) {
-      alert("Please provide an API URL.");
+      alert("Please select a file.");
       return;
     }
 
+    const selected = fileInput.files![0];
+
     submitBtn.disabled = true;
-    loader.style.display = 'block';
-    loadingText.style.display = 'block';
+    loader.style.display = "block";
+    loadingText.style.display = "block";
     loadingText.innerText = "Analyzing video and audio... please wait.";
     loadingText.style.color = "#cbd5e1";
-    resultDiv.innerHTML = '';
-    
+    resultDiv.innerHTML = "";
+
     const fd = new FormData();
     fd.append("file", selected, selected.name);
 
     try {
-      const res = await fetch(`${base}/predict`, {
+      const res = await fetch(`${API_BASE}/predict`, {
         method: "POST",
         body: fd,
       });
@@ -162,9 +125,9 @@ function render(): void {
       loadingText.style.color = "#ef4444";
     } finally {
       submitBtn.disabled = false;
-      loader.style.display = 'none';
-      if (resultDiv.innerHTML !== '') {
-          loadingText.style.display = 'none';
+      loader.style.display = "none";
+      if (resultDiv.innerHTML !== "") {
+        loadingText.style.display = "none";
       }
     }
   });
